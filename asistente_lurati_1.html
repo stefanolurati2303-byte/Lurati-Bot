@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente Lurati Inmobiliaria</title>
+<style>
+  :root{
+    --bordo:#7e2b26; --bordo-2:#9a3832; --teal:#0f6e66; --green:#1d7a5f;
+    --ink:#1d2733; --muted:#6b7785; --paper:#f4f5f7; --line:#e2e7ec;
+    --burbuja-bot:#ffffff; --burbuja-cli:#7e2b26;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink); display:flex; flex-direction:column; height:100dvh;
+  }
+  header{
+    background:var(--bordo); color:#fff; padding:14px 18px; display:flex; align-items:center; gap:12px; flex:none;
+  }
+  .escudo{width:38px;height:38px;border-radius:9px;background:#fff;color:var(--bordo);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;letter-spacing:.5px;flex:none}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header p{font-size:12px;margin:1px 0 0;opacity:.85}
+  .estado{margin-left:auto;font-size:11px;display:flex;align-items:center;gap:5px;opacity:.9}
+  .punto{width:8px;height:8px;border-radius:50%;background:#7bdcab}
+  #chat{flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:82%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+  .bot{background:var(--burbuja-bot);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+  .cli{background:var(--burbuja-cli);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .deriv{align-self:center;background:#eaf6ee;color:var(--green);border:1px solid #bfe3cb;font-size:13px;padding:9px 13px;border-radius:10px;max-width:90%;text-align:center}
+  .typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:14px;border-bottom-left-radius:4px}
+  .typing span{width:7px;height:7px;border-radius:50%;background:#c2ccd6;animation:b 1.2s infinite}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes b{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  footer{flex:none;padding:12px 14px;border-top:1px solid var(--line);background:#fff;display:flex;gap:9px;align-items:flex-end}
+  #txt{flex:1;border:1px solid var(--line);border-radius:22px;padding:11px 15px;font-size:15px;font-family:inherit;resize:none;max-height:120px;line-height:1.4}
+  #txt:focus{outline:none;border-color:var(--bordo-2);box-shadow:0 0 0 3px rgba(126,43,38,.12)}
+  #enviar{flex:none;width:44px;height:44px;border-radius:50%;border:0;background:var(--bordo);color:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #enviar:disabled{opacity:.5;cursor:default}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:0 14px 12px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:18px;padding:8px 13px;font-size:13px;cursor:pointer;color:var(--bordo)}
+  .config{margin:auto;max-width:440px;padding:24px}
+  .config h2{font-size:17px;margin:0 0 6px}
+  .config p{font-size:13.5px;color:var(--muted);line-height:1.5}
+  .config input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;margin:8px 0}
+  .config button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--bordo);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  .aviso{font-size:12px;color:var(--muted);text-align:center;padding:6px 14px}
+</style>
+</head>
+<body>
+
+<div id="setup" class="config">
+  <div class="escudo" style="margin-bottom:14px">LU</div>
+  <h2>Asistente Lurati — Configuración</h2>
+  <p>Pegá la URL del Apps Script del Asistente (el <b>/exec</b> del puente a Gemini que configuraste). Se guarda solo en este navegador para la prueba.</p>
+  <input id="urlInput" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+  <button onclick="guardarUrl()">Empezar a probar</button>
+  <p class="aviso" style="margin-top:14px">Esta pantalla es solo para la etapa de prueba. En producción la URL queda fija.</p>
+</div>
+
+<div id="app" style="display:none;flex-direction:column;height:100%">
+  <header>
+    <div class="escudo">LU</div>
+    <div>
+      <h1>Asistente Lurati</h1>
+      <p>Inmobiliaria · Rosario</p>
+    </div>
+    <div class="estado"><span class="punto"></span> En línea</div>
+  </header>
+
+  <div id="chat"></div>
+
+  <div class="chips" id="chips">
+    <div class="chip" onclick="sugerir('Hola, vi una propiedad publicada y quiero más información')">Consulto por una propiedad</div>
+    <div class="chip" onclick="sugerir('Hola, busco una propiedad para comprar')">Busco comprar</div>
+    <div class="chip" onclick="sugerir('Quiero vender mi propiedad')">Quiero vender</div>
+    <div class="chip" onclick="sugerir('Necesito una tasación')">Tasar</div>
+  </div>
+  <div class="chips" id="chips-din"></div>
+
+  <footer>
+    <textarea id="txt" rows="1" placeholder="Escribí tu consulta…"></textarea>
+    <button id="enviar" onclick="enviar()">➤</button>
+  </footer>
+</div>
+
+<script>
+  let URL_BOT = localStorage.getItem('lurati_bot_url') || '';
+  let HIST = [];
+  let cargando = false;
+
+  function guardarUrl(){
+    const v = document.getElementById('urlInput').value.trim();
+    if(!v.startsWith('http')){ alert('Pegá una URL válida que empiece con https://'); return; }
+    URL_BOT = v;
+    localStorage.setItem('lurati_bot_url', v);
+    iniciar();
+  }
+
+  function iniciar(){
+    document.getElementById('setup').style.display='none';
+    document.getElementById('app').style.display='flex';
+    if(HIST.length===0){
+      addBot('¡Hola! Soy el asistente de Lurati Inmobiliaria. Para ayudarte mejor, contame: ¿estás buscando comprar, alquilar, vender o tasar una propiedad?');
+    }
+  }
+
+  function addBot(t){
+    const c=document.getElementById('chat');
+    const d=document.createElement('div'); d.className='msg bot'; d.textContent=t;
+    c.appendChild(d); c.scrollTop=c.scrollHeight;
+    mostrarChipsSegunContexto(t);
+  }
+
+  // Bancos de opciones rápidas, según la estrategia comercial Lurati
+  const BANCOS = {
+    tipo:      {test:/tipo de inmueble|departamento, casa|casa, lote|qué tipo/i, ops:["Departamento","Casa","Lote","Local","Oficina","Otro"]},
+    zona:      {test:/zona|barrio|en qué parte/i, ops:["Centro","Martin","Lourdes","Echesortu","Pichincha","Fisherton","Otra"]},
+    dorms:     {test:/dormitorio|cuántos amb|ambientes/i, ops:["Mono","1","2","3","4+"]},
+    presup:    {test:/presupuesto|rango|cuánto|qué valor|invertir.*capital|capital/i, ops:["Hasta 45 mil","45 a 70 mil","70 a 100 mil","100 a 150 mil","150 mil o más"]},
+    pago:      {test:/forma de pago|contado|crédito|financ/i, ops:["Contado","Crédito","Financiación","Permuta","Parte de pago"]},
+    plazo:     {test:/plazo|para cuándo|cuándo.*comprar|momento de compra/i, ops:["Inmediato","30 a 60 días","3 a 6 meses","Más adelante"]},
+    visita:    {test:/visita|verla|conocerla|coordin|qué día|hoy.*mañana|en persona/i, ops:["Hoy","Mañana","Esta semana","Sábado","Otro día"]},
+    uso:       {test:/para vivir|invertir|vivir o invertir|uso/i, ops:["Vivir","Invertir","Reciclar","Lote","Local","Oficina"]}
+  };
+
+  function mostrarChipsSegunContexto(textoBot){
+    const cont=document.getElementById('chips-din');
+    cont.innerHTML='';
+    // Buscar el primer banco cuyo patrón aparezca en la pregunta del bot
+    for(const k in BANCOS){
+      if(BANCOS[k].test.test(textoBot)){
+        BANCOS[k].ops.forEach(op=>{
+          const c=document.createElement('div');
+          c.className='chip'; c.textContent=op;
+          c.onclick=()=>sugerir(op);
+          cont.appendChild(c);
+        });
+        return; // solo un banco por turno
+      }
+    }
+  }
+  function addCli(t){
+    const c=document.getElementById('chat');
+    const d=document.createElement('div'); d.className='msg cli'; d.textContent=t;
+    c.appendChild(d); c.scrollTop=c.scrollHeight;
+  }
+  function addDeriv(){
+    const c=document.getElementById('chat');
+    const d=document.createElement('div'); d.className='deriv'; d.textContent='✓ Un asesor de Lurati fue notificado y te va a contactar a la brevedad.';
+    c.appendChild(d); c.scrollTop=c.scrollHeight;
+  }
+  function typing(on){
+    const c=document.getElementById('chat');
+    let t=document.getElementById('typing');
+    if(on){ if(t)return; t=document.createElement('div'); t.id='typing'; t.className='typing'; t.innerHTML='<span></span><span></span><span></span>'; c.appendChild(t); c.scrollTop=c.scrollHeight; }
+    else if(t){ t.remove(); }
+  }
+
+  function sugerir(t){ document.getElementById('txt').value=t; enviar(); }
+
+  function enviar(){
+    const ta=document.getElementById('txt');
+    const t=ta.value.trim();
+    if(!t||cargando)return;
+    addCli(t);
+    HIST.push({rol:'user',texto:t});
+    ta.value=''; ta.style.height='auto';
+    document.getElementById('chips').style.display='none';
+    document.getElementById('chips-din').innerHTML='';
+    cargando=true; document.getElementById('enviar').disabled=true; typing(true);
+
+    fetch(URL_BOT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({historial:HIST})})
+      .then(r=>r.json())
+      .then(d=>{
+        typing(false);
+        if(d.ok){
+          addBot(d.respuesta);
+          HIST.push({rol:'model',texto:d.respuesta});
+          if(d.derivar) addDeriv();
+        } else {
+          addBot('Disculpá, tuve un problema técnico. Un asesor te va a contactar. ('+(d.error||'')+')');
+        }
+      })
+      .catch(err=>{ typing(false); addBot('No me pude conectar. Revisá la URL del asistente o tu conexión.'); })
+      .finally(()=>{ cargando=false; document.getElementById('enviar').disabled=false; document.getElementById('txt').focus(); });
+  }
+
+  // textarea que crece y Enter para enviar
+  const ta=document.getElementById('txt');
+  ta.addEventListener('input',()=>{ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
+  ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); enviar(); } });
+
+  // arranque
+  if(URL_BOT){ document.getElementById('urlInput').value=URL_BOT; iniciar(); }
+</script>
+</body>
+</html>
